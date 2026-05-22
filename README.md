@@ -19,6 +19,16 @@ Only what actually happened in the session:
 
 Anti-hallucination rule: each lesson must quote the specific user pushback or wrong tool result. No quote → no lesson. Zero lessons is a valid output.
 
+## claude-mem integration (optional)
+
+If [claude-mem](https://github.com/thedotmack/claude-mem) MCP tools are available in your environment, `/retro` will:
+
+- **Detect recurring mistakes** — search past observations for each mistake signal. If a similar pattern existed across previous sessions, the lesson is flagged `RECURRING` so you can prioritize it.
+- **Dedupe across sessions** — search observations for the lesson title and skip drafts already covered by stored memory.
+- **Sync approved lessons** — write each approved lesson back as an observation tagged `retro` so future sessions auto-inject it.
+
+If claude-mem is not installed, this step is skipped silently — the rest of `/retro` works the same.
+
 ## Where lessons go
 
 | Scope | File |

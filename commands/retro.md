@@ -1,8 +1,8 @@
 ---
-description: Session retrospective. Extract lessons from mistakes/corrections, preview, approve, append to LESSONS.md.
+description: Session retrospective. Extract lessons from mistakes/corrections, preview, approve, append to LESSONS.md. Uses claude-mem if available.
 ---
 
-You are running a session retrospective. Your job: find genuine mistakes from THIS session, propose lessons, get user approval, then write.
+You are running a session retrospective. Your job: find genuine mistakes from THIS session, propose lessons, get user approval, then write. If `claude-mem` MCP tools are available, use them to enrich and deduplicate.
 
 # Anti-hallucination rules (strict)
 
@@ -26,15 +26,27 @@ Look for:
 - **Repeated errors**: same fix attempted twice
 - **Time waste**: long path that produced nothing usable
 
-## 2. For each signal, draft a lesson
+## 2. (Optional, if claude-mem MCP available) Cross-session check
+
+If tools like `mcp__plugin_claude-mem_mcp-search__observation_search` or `mcp__plugin_claude-mem_mcp-search__smart_search` are available:
+
+For each mistake signal found in step 1, do **one short search** (2-4 word query of the failure pattern). Goal: see if this is a recurring mistake across sessions, not a one-off.
+
+- If a similar observation exists → mark the draft lesson as **RECURRING** and bump priority.
+- If no match → mark as **NEW**.
+
+Do not search more than 3-5 times total. If tools unavailable or slow, skip this step silently — do not block the retrospective.
+
+## 3. For each signal, draft a lesson
 
 Format per lesson:
+
 ```
-[SCOPE] <general | project>
-[EVIDENCE]
-> "<quote from user or tool result>"
-[LESSON] When <situation>, do <X> not <Y>.
-[FILE] <target path>
+[N] [SCOPE: general | project] [RECURRING | NEW]
+EVIDENCE: "<quote from user or tool result>"
+LESSON: When <situation>, do <X> not <Y>.
+FILE: <target path>
+DUPLICATE-CHECK: <none | similar to "..." in <file>:<line>>
 ```
 
 Scope rules:
@@ -43,54 +55,70 @@ Scope rules:
 
 Resolve project path: use `$CLAUDE_PROJECT_DIR` if set, else current working directory. If `docs/` does not exist in project, note this — ask user before creating.
 
-## 3. Show preview
+## 4. Dedupe against target files
 
-Print all drafted lessons in a numbered list. For each:
-- Show the EVIDENCE quote
-- Show the LESSON text
-- Show the target FILE
-- Show whether it duplicates an existing entry in that file (read the file first; skip if too similar)
+Before showing preview, read the target `LESSONS.md` files. For each draft lesson:
+- If a near-duplicate already exists, mark `DUPLICATE-CHECK: similar to "<existing title>" — skip`.
+- Do not propose duplicates.
 
-If zero lessons: say "no lessons worth recording" and stop. Do not pad.
+If claude-mem available, also call `observation_search` with the lesson title — flag overlaps.
 
-## 4. Ask user
+## 5. Show preview
 
-Ask one question with options per lesson:
+Print all drafted lessons in a numbered list using the format above. Keep each lesson ≤ 6 lines.
+
+If zero lessons survive (none found, or all duplicates): say "no lessons worth recording" and stop. Do not pad.
+
+## 6. Ask user
+
+One question, options:
 - approve all
-- approve subset (user lists numbers)
-- edit one (user gives new text)
+- approve subset (user gives numbers, e.g. `1,3,4`)
+- edit one (user gives `N: <new text>`)
 - skip all
 
 Do NOT write files until user explicitly approves.
 
-## 5. Write
+## 7. Write
 
 On approval, for each approved lesson:
-1. Read target file (create with header `# Lessons\n` if missing — but ask first if creating new file)
-2. Append under appropriate section (see below)
-3. Confirm write with file path + line range
+1. Read target file (create with header `# Lessons\n` if missing — silent for `~/.claude/LESSONS.md`, ask first if creating `<project>/docs/LESSONS.md` and `docs/` does not exist)
+2. Append under today's date heading (`## YYYY-MM-DD`). Same date already present = append under it.
+3. If claude-mem available, also call `observation_add` to record the lesson as a cross-session observation. Tag with `retro` and the scope.
+4. Confirm write with file path + line range.
+
+## 8. (Optional) Append to decision log
+
+After write (or skip), append one JSONL line to `~/.claude/retro-log.jsonl`:
+
+```json
+{"ts":"<ISO date>","cwd":"<pwd>","proposed":<n>,"approved":<n>,"edited":<n>,"rejected":<n>,"recurring":<n>}
+```
+
+Used later to spot prompt drift. Create file if missing. Never include lesson text — counts only.
 
 # File format
 
-Each LESSONS.md uses this structure:
+Each `LESSONS.md` uses:
 
 ```
 # Lessons
 
-## <YYYY-MM-DD>
+## 2026-05-22
 
-- **<short title>** — <lesson body>. Evidence: <one-line quote>.
+- **<short title>** [recurring?] — <lesson body>. Evidence: "<one-line quote>".
 ```
 
 Group by date heading. New date = new heading. Same date = append under existing heading.
 
 # Edge cases
 
-- If `~/.claude/LESSONS.md` does not exist, create it (no prompt needed, it's the standard location).
+- If `~/.claude/LESSONS.md` does not exist, create it (standard location).
 - If `<project>/docs/LESSONS.md` does not exist AND `docs/` exists → create the file silently.
 - If `<project>/docs/` does not exist → ask user before creating `docs/`.
 - Never write to a file outside `$HOME/.claude/` or the current project directory.
+- If user is in caveman mode, match that tone in preview/output.
 
 # Output discipline
 
-Keep preview compact. One lesson = ~5 lines. No prose padding around them. If user is in caveman mode, match that tone.
+Compact. No prose padding. No headers like "Here are the lessons:". Just the numbered list, then the approval question.
