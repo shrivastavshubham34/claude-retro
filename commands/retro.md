@@ -35,7 +35,9 @@ For each mistake signal found in step 1, do **one short search** (2-4 word query
 - If a similar observation exists → mark the draft lesson as **RECURRING** and bump priority.
 - If no match → mark as **NEW**.
 
-Do not search more than 3-5 times total. If tools unavailable or slow, skip this step silently — do not block the retrospective.
+Do not search more than 3-5 times total. If tools unavailable, skip this step silently.
+
+**Re-try if previously denied**: if earlier in this session a claude-mem call was denied or interrupted, do not treat that as permanent. At step 2 of `/retro`, re-attempt the read-only searches once. The user is now explicitly running the retrospective and read-only searches are safe.
 
 ## 3. For each signal, draft a lesson
 
@@ -43,11 +45,22 @@ Format per lesson:
 
 ```
 [N] [SCOPE: general | project] [RECURRING | NEW]
-EVIDENCE: "<quote from user or tool result>"
+EVIDENCE (<source>): "<literal quote>"
+[EVIDENCE (<source>): "<another quote>"]   (one per line, label each)
 LESSON: When <situation>, do <X> not <Y>.
 FILE: <target path>
 DUPLICATE-CHECK: <none | similar to "..." in <file>:<line>>
 ```
+
+Each `EVIDENCE` line must include a source label, exactly one of:
+
+- `(user said)` — literal user message
+- `(tool result)` — literal output from a tool call
+- `(self-correction)` — your own retraction of an earlier claim. Allowed only when paired with a `(user said)` or `(tool result)` line. Cannot stand alone.
+
+If you have **multiple supporting quotes**, emit one `EVIDENCE` line per quote with its own source label. Do not collapse with `+`, `/`, or `&`.
+
+If no `(user said)` or `(tool result)` line is possible, the lesson is unsupported — drop it.
 
 Scope rules:
 - `general` → applies regardless of repo. Target: `~/.claude/LESSONS.md`
@@ -84,8 +97,10 @@ Do NOT write files until user explicitly approves.
 On approval, for each approved lesson:
 1. Read target file (create with header `# Lessons\n` if missing — silent for `~/.claude/LESSONS.md`, ask first if creating `<project>/docs/LESSONS.md` and `docs/` does not exist)
 2. Append under today's date heading (`## YYYY-MM-DD`). Same date already present = append under it.
-3. If claude-mem available, also call `observation_add` to record the lesson as a cross-session observation. Tag with `retro` and the scope.
-4. Confirm write with file path + line range.
+3. **(Optional)** If claude-mem write tools are available, call `observation_add` to record the lesson as a cross-session observation. Tag with `retro` and the scope.
+   - **Known constraint**: `observation_add` / `memory_add` require `CLAUDE_MEM_RUNTIME=server-beta`. In worker runtime they fail.
+   - If write fails with a runtime / capability error → print one line: `claude-mem write skipped: <reason>. Lesson lives in LESSONS.md only.` Do **not** abort, do **not** retry, do **not** treat as a session failure.
+4. Confirm write with file path + line range for each LESSONS.md update.
 
 ## 8. (Optional) Append to decision log
 
@@ -96,6 +111,8 @@ After write (or skip), append one JSONL line to `~/.claude/retro-log.jsonl`:
 ```
 
 Used later to spot prompt drift. Create file if missing. Never include lesson text — counts only.
+
+Always write this line, even on skip-all (`approved: 0, rejected: <proposed>`) so the log reflects intent.
 
 # File format
 

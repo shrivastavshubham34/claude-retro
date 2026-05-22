@@ -29,6 +29,14 @@ If [claude-mem](https://github.com/thedotmack/claude-mem) MCP tools are availabl
 
 If claude-mem is not installed, this step is skipped silently — the rest of `/retro` works the same.
 
+**Known runtime constraint**: writing lessons back as observations (`observation_add` / `memory_add`) requires claude-mem in `server-beta` runtime. In the default worker runtime, write tools are gated and return a capability error. `/retro` handles this gracefully — search/dedupe still works, only the cross-session write is skipped with a one-line note. To enable writes, set:
+
+```bash
+export CLAUDE_MEM_RUNTIME=server-beta
+```
+
+before launching Claude Code (or in your shell rc).
+
 ## Where lessons go
 
 | Scope | File |
