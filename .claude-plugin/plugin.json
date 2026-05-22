@@ -1,0 +1,8 @@
+{
+  "name": "claude-retro",
+  "description": "Manual session retrospective for Claude Code. Extract evidence-backed lessons from your conversation and append them to per-project or global LESSONS.md with preview-before-write.",
+  "author": {
+    "name": "Shubham Shrivastava",
+    "url": "https://github.com/"
+  }
+}

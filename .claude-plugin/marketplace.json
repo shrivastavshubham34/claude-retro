@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-retro",
+  "description": "Session retrospective plugin for Claude Code. Distills mistakes into a growing project-specific or global knowledge base.",
+  "owner": {
+    "name": "Shubham Shrivastava",
+    "url": "https://github.com/"
+  },
+  "plugins": [
+    {
+      "name": "claude-retro",
+      "description": "/retro slash command: scan the current session for mistakes, draft lessons backed by quoted evidence, preview, approve, append to LESSONS.md.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}
