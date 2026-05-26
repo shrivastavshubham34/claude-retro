@@ -102,6 +102,52 @@ On approval, for each approved lesson:
    - If write fails with a runtime / capability error → print one line: `claude-mem write skipped: <reason>. Lesson lives in LESSONS.md only.` Do **not** abort, do **not** retry, do **not** treat as a session failure.
 4. Confirm write with file path + line range for each LESSONS.md update.
 
+## 7a. Ensure auto-load wiring
+
+A `LESSONS.md` file is dead text unless future sessions actually read it. Claude Code auto-loads `CLAUDE.md` and follows `@path` references inside it. After step 7, ensure each `LESSONS.md` you wrote is referenced from the matching `CLAUDE.md`.
+
+Detection is always by canonical path (resolve `~`, `$HOME`, relative), not literal string match. Variants like `@~/.claude/LESSONS.md`, `@LESSONS.md`, `@$HOME/.claude/LESSONS.md` all count as "already wired".
+
+For each `general` lesson written to `~/.claude/LESSONS.md`:
+1. **`~/.claude/CLAUDE.md` does not exist** → create it silently with:
+   ```
+   # Global Claude Code instructions
+
+   ## Auto-loaded references
+
+   @~/.claude/LESSONS.md
+   ```
+2. **`~/.claude/CLAUDE.md` exists, `@` ref already present** → no-op.
+3. **`~/.claude/CLAUDE.md` exists, `@` ref missing** → do NOT auto-edit. The user may have structured the file deliberately. Instead show a diff preview:
+   ```
+   --- ~/.claude/CLAUDE.md (proposed)
+   <minimal patch: append "@~/.claude/LESSONS.md" under an existing
+    "## Auto-loaded references" section, or add that section at end-of-file>
+   ```
+   Ask once: `Apply this CLAUDE.md edit so lessons auto-load? (yes/no)`. On `yes`, write. On `no`, print `note: ~/.claude/LESSONS.md will not auto-load until ~/.claude/CLAUDE.md references it.` and skip.
+
+For each `project` lesson written to `<project>/docs/LESSONS.md`:
+1. **`<project>/CLAUDE.md` does not exist** → do NOT create one (that is the project owner's choice). Print: `note: <project>/docs/LESSONS.md will not auto-load until CLAUDE.md is created and references it.`
+2. **`<project>/CLAUDE.md` exists, `@` ref present** → no-op.
+3. **`<project>/CLAUDE.md` exists, `@` ref missing** → same diff-preview + ask-once flow as the general case above. Never auto-edit a project's `CLAUDE.md`.
+
+Both flows must be idempotent across repeated `/retro` runs — never propose an edit that adds a duplicate `@` line.
+
+## 7b. Promote lesson to permanent edit (optional)
+
+A lesson in `LESSONS.md` is dated history. A lesson folded into a skill file, cookbook, or `CLAUDE.md` becomes operative instruction — the agent acts on it without having to re-read the dated entry. Useful when the lesson is domain-specific (an API gotcha, a tool quirk) rather than a general behavior nudge.
+
+After step 7a, scan the approved lessons. For any whose substance reads as imperative instruction for a specific tool/domain, ask the user **once**:
+
+`Promote any lesson to a permanent skill/docs edit? Reply <N>:<path> per lesson (e.g. "2:.claude/commands/bitrise.md"), or "none".`
+
+On reply:
+- For each `<N>:<path>` pair, read the target file, draft an exact diff (single block) that adds the lesson as imperative instruction — not as dated history. Show the diff.
+- Ask once more: `Apply this diff? (yes/no)`.
+- On `yes`, write. On `no`, skip that pair and move on.
+
+One round of prompts. If user replies `none`, doesn't reply with a usable pair, or skips, move on silently.
+
 ## 8. (Optional) Append to decision log
 
 After write (or skip), append one JSONL line to `~/.claude/retro-log.jsonl`:
